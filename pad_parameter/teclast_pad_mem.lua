@@ -61,22 +61,23 @@ INIT_POS = -1
 for size,pos,nameX in string.gmatch(mem_data_str, '(0x[%x]+)@(0x[%x]+)[(]([%w]+)[)]') do
     size = tonumber(size) / 1024
     t[nameX] = size
-    print(string.format('%-10s %-10s  %10smb',nameX,DATA_NAME[nameX],size))
+    printInfo(nameX)
     DATA_SIZE = DATA_SIZE - size
     if INIT_POS == -1 then
         INIT_POS = tonumber(pos)
+        DATA_SIZE = DATA_SIZE - INIT_POS / 1024
     end
 end
 printUserInfo()
 
 
 print("\n请依次按提示输入各个分区的大小,单位为mb,如不修改,请直接回车跳过\n")
-DATA_SIZE=8*1024
+DATA_SIZE=8*1024 - INIT_POS / 1024
 for i,nameX in pairs(NAMES) do
     if not t[nameX] then
         break
     end
-    print(string.format('%-10s %-10s  现在的大小:%10smb',nameX,DATA_NAME[nameX],t[nameX]))
+    printInfo(nameX)
     newSize = io.read()
     if newSize and string.len(newSize) > 0 then
         t[nameX] = tonumber(newSize)
@@ -90,7 +91,7 @@ for i,nameX in pairs(NAMES) do
     if not t[nameX] then
         break
     end
-    print(string.format('%-10s %-10s  %10smb',nameX,DATA_NAME[nameX],t[nameX]))
+    printInfo(nameX)
     data_str = data_str .. string.format('0x%08X@0x%08X(%s),',t[nameX] * 1024,pos,nameX)
     pos = pos + t[nameX] * 1024
 end
@@ -119,3 +120,5 @@ f.write(f, pre .. 'nand:' .. data_str)
 io.flush(f)
 
 print("成功写入parameter_new文件")
+print("按回车退出....")
+io.read()
