@@ -1,5 +1,7 @@
-print('台电平板固件 内存分配文件parameter修改器')
+print('台电平板固件 内存分配文件parameter修改器 1.0beta')
 print('Wendal作品 http://wendal.net')
+print('项目地址: https://github.com/wendal/teclast_tools')
+print('意见或反馈: pad@wendal.net')
 
 DATA_NAME = {
 misc='核心方法',
