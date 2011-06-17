@@ -80,10 +80,10 @@ function unpackROM()
     readDate(rom_file,U_P,U_L,'update.img')
     
     print("解压updata.img到Temp文件夹")
-    os.execute('AFPTool.exe -unpack update.img Temp\\')
+    os.execute('AFPTool.exe -unpack update.img Temp')
     
     print("解压system.img到system文件夹")
-    os.execute('cramfsck_nocrc -x system Temp\\Image\\system.img')
+    os.execute('cramfsck -x system Temp\\Image\\system.img')
     
     print("开启root权限")
     os.execute('copy /B su system\\bin\\su >nul')
