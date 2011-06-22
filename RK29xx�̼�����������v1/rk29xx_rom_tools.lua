@@ -33,7 +33,7 @@ BUFF=8192
 
 function readDate(f,pos,len,dest)
     print(string.format('偏移量(0x%X) 长度(0x%X)',pos,len))
-    rom_file:seek('set',pos)
+    f:seek('set',pos)
     destF = io.open(dest, 'wb+')
     while len > 0 do
         data = nil
@@ -72,7 +72,7 @@ function unpackROM()
     U_P = readHex(rom_file)
     print("读取update.img的长度")
     U_L = readHex(rom_file)
-    
+
     
     print("输出Loader文件")
     readDate(rom_file,L_P,L_L,'RK29xxLoader(L).bin')
@@ -83,22 +83,80 @@ function unpackROM()
     os.execute('AFPTool.exe -unpack update.img Temp')
     
     print("解压system.img到system文件夹")
-    os.execute('cramfsck -x system Temp\\Image\\system.img')
+    os.execute('cramfsck -x system Temp/Image/system.img')
     
     print("开启root权限")
-    os.execute('copy /B su system\\bin\\su >nul')
-    os.execute('copy /B Superuser.apk system\\app\\ >nul')
+    os.execute('copy /B su system/bin/su >nul')
+    os.execute('copy /B Superuser.apk system/app/ >nul')
     os.execute('chmod -R 0777 system/*')
     os.execute('chmod 6755 system/bin/su')
     os.execute('chmod 6755 system/app/Superuser.apk')
+
+    print("尝试解开boot.img ...")
+    print("创建临时文件")
+    BootImg = io.open('Temp/Image/boot.img','rb')
+    if BootImg then
+        BootImg:seek('end')
+        B_Size = BootImg:seek() - 8
+        BootImg:seek('set',0)
+        readDate(BootImg,8,B_Size,'Temp/Image/boot.gz')
+        print("尝试解压boot.gz")
+        os.execute('gzip -d -f Temp/Image/boot.gz')
+        BootImg:close()
+        bFile = io.open('Temp/Image/boot','rb')
+        if bFile then
+            bFile:close()
+            print("哦Yes! gzip解压成功,继续下一步cpio解压")
+            os.execute('unpackBoot.bat')
+        end
+    end
+
     print('解包工作 -- 全部完成')
+    rom_file:close()
 end
 
 --打包
 function packROM()
-    print('将system重新打包为system.img,覆盖到Temp\\Image\\system.img')
-    os.execute('mkcramfs -q system Temp\\Image\\system.img')
-    
+    SYSTEM_DIR = io.open('system/build.prop','r')
+    if SYSTEM_DIR then
+        SYSTEM_DIR:close()
+        print('将system重新打包为system.img,覆盖到Temp\\Image\\system.img')
+        os.execute('mkcramfs -q system Temp/Image/system.img')
+    end
+
+    BOOT_DIR = io.open('boot/init','rb')
+    if BOOT_DIR then
+        BOOT_DIR:close()
+        print('将boot重新打包为boot.img,覆盖到Temp\\Image\\boot.img')
+        os.execute('packBoot.bat')
+        BOOT_FILE = io.open('Temp/boot.gz','rb')
+        if BOOT_FILE then
+            print("压缩完成,开始写入boot.img")
+            BOOT_FILE:seek('end')
+            B_L = BOOT_FILE:seek()
+            BOOT_FILE:seek('set',0)
+            os.execute('del Temp\\Image\\boot.img')
+            BOOT_IMG = io.open('Temp//Image//boot.img','wb+')
+            BOOT_IMG:write('KRNL')
+            writeHex(BOOT_IMG,B_L)
+            data = 0
+            while B_L > 0 do
+                if B_L > BUFF then
+                    data = BOOT_FILE:read(BUFF)
+                    B_L = B_L - BUFF
+                else
+                    data = BOOT_FILE:read(B_L)
+                    B_L = 0
+                end
+                BOOT_IMG:write(data)
+            end
+            BOOT_IMG:flush()
+            BOOT_IMG:close()
+            print("成功写入boot.img")
+            BOOT_FILE:close()
+        end
+    end
+
     print('将Temp中的文件,打包为update_new.img文件')
     os.execute('Afptool -pack ./Temp update_new.img')
     
@@ -113,7 +171,7 @@ function packROM()
     U_L = update_file:seek('end')
     update_file:seek('set',0) -- 恢复到文件起始位置
 
-    T_File = io.open('template.img', 'rb+') -- 打开模板文件
+    T_File = io.open('wendal.img', 'rb+') -- 打开模板文件
     DestF = io.open('wendal_new.img', 'wb+') --开启目标文件
     data = T_File:read(25)
     DestF:write(data)
@@ -125,6 +183,7 @@ function packROM()
     data = T_File:read(102 - 25 - 16)
     DestF:write(data)
     DestF:flush()
+    T_File:close()
     print('开始写入loader')
     while L_L > 0 do
         if L_L > BUFF then
